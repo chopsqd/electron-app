@@ -1,13 +1,18 @@
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-const {app, BrowserWindow, Menu, ipcMain} = require("electron");
+const resizeImg = require("resize-img");
+const {app, BrowserWindow, Menu, ipcMain, shell} = require("electron");
 
-const isDev = process.env.NODE !== 'production'
+// For tests
+process.env.NODE_ENV = 'production'
+
+const isDev = process.env.NODE_ENV !== 'production'
 const isMac = process.platform === 'darwin'
+let mainWindow
 
 function createMainWindow() {
-    const mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         title: 'Image Resizer',
         width: isDev ? 1000 : 500,
         height: 600,
@@ -45,6 +50,9 @@ app.whenReady().then(() => {
     const mainMenu = Menu.buildFromTemplate(menu)
     Menu.setApplicationMenu(mainMenu)
 
+    // Remove mainWindow from memory on close
+    mainWindow.on('closed', () => (mainWindow = null))
+
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -56,7 +64,7 @@ app.whenReady().then(() => {
 //Menu template
 const menu = [
     {
-        label: 'File',
+        label: 'Test',
         submenu: [
             {
                 label: 'Quit',
@@ -79,7 +87,35 @@ const menu = [
 // Respond to ipcRenderer resize
 ipcMain.on('image:resize', (event, options) => {
     options.dest = path.join(os.homedir(), 'imageresizer')
+    resizeImage(options)
 })
+
+// Resize the image
+async function resizeImage({imgPath, width, height, dest}) {
+    try {
+        const newPath = await resizeImg(fs.readFileSync(imgPath), {
+            width: +width,
+            height: +height
+        })
+        const filename = path.basename(imgPath)
+
+        // Create dest folder if not exists
+        if(!fs.existsSync(dest)) {
+            fs.mkdirSync(dest)
+        }
+
+        // Write file to the destination folder
+        fs.writeFileSync(path.join(dest, filename), newPath)
+
+        // Send success to render
+        mainWindow.webContents.send('image:done')
+
+        // Open dest folder
+        shell.openPath(dest)
+    } catch (error) {
+        console.log(error)
+    }
+}
 
 app.on('window-all-closed', () => {
     if (!isMac) {
