@@ -1,0 +1,15 @@
+{
+    "name": "recipes",
+    "version": "1.0.0",
+    "main": "main.js",
+    "devDependencies": {
+        "electron": "^15.3.1"
+    },
+    "scripts": {
+        "start": "electron ."
+    },
+    "dependencies": {
+        "resize-img": "^2.0.0",
+        "toastify-js": "^1.12.0"
+    }
+}
